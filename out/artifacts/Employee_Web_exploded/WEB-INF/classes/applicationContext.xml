@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/tx 
+	http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+	<!-- 配置数据源 -->
+	<!-- 配置读取数据源参数的属性文件：jdbc.properties -->
+	<context:property-placeholder location="classpath:jdbc.properties" />
+	<!-- 配置c3p0连接池 -->
+	<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+		<property name="driverClass" value="${jdbc.driver}" />
+		<property name="jdbcUrl" value="${jdbc.url}" />
+		<property name="user" value="${jdbc.user}" />
+		<property name="password" value="${jdbc.password}" />
+	</bean>
+
+	<!-- 配置sessionFactory -->
+	<bean id="sessionFactory"
+		class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
+		<!-- 配置数据源 -->
+		<property name="dataSource" ref="dataSource" />
+		<!-- 配置Hibernate需要的其它的参数 -->
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">true</prop>
+				<prop key="hibernate.hbm2ddl.auto">update</prop>
+				<prop key="hibernate.connection.autocommit">false</prop>
+			</props>
+		</property>
+		<property name="mappingResources">
+			<list>
+				<value>com/employee/entity/Employee.hbm.xml</value>
+				<value>com/employee/entity/Department.hbm.xml</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- 配置Spring的事务管理器 -->
+	<bean id="transactionManager"
+		class="org.springframework.orm.hibernate3.HibernateTransactionManager">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+
+	<!-- 开启注解方式的事务管理 -->
+	<tx:annotation-driven transaction-manager="transactionManager" />
+	
+	<!-- 配置action的类 -->
+	<bean id="employeeAction" class="com.employee.action.EmployeeAction" scope="prototype">
+		<property name="employeeService" ref="employeeService" />
+		<property name="departmentService" ref="departmentService" />
+	</bean>
+	<bean id="departmentAction" class="com.employee.action.DepartmentAction" scope="prototype">
+		<property name="departmentService" ref="departmentService" />
+	</bean>
+	
+	<!-- 配置业务层的类 -->
+	<bean id="employeeService" class="com.employee.service.impl.EmployeeServiceImpl">
+		<property name="employeeDao"  ref="employeeDao"/>
+	</bean>
+	<bean id="departmentService" class="com.employee.service.impl.DepartmentServiceImpl">
+		<property name="departmentDao" ref="departmentDao" />
+	</bean>
+	
+	<!-- 配置Dao的类-->
+	<bean id="employeeDao" class="com.employee.dao.impl.EmployeeDaoImpl">
+		<property name="sessionFactory"  ref="sessionFactory"/>
+	</bean>
+	<bean id="departmentDao" class="com.employee.dao.impl.DepartmentDaoImpl">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+	
+	<!-- dao层 -->
+	<!--  <bean id="studentdaoimpl" class="com.student.dao.impl.StudentDaoImpl" >
+		<property name="sessionFactory" ref="sessionFactory"></property>
+	</bean>-->
+	<!-- service层 -->
+	<!--  <bean id="studentservice" class="com.student.service.impl.StudentServiceImpl" >
+		<property name="iStudentDao" ref="studentdaoimpl" ></property>
+		<property name="sessionFactory" ref="sessionFactory"></property>
+	</bean>-->
+	<!-- action层 -->
+	<!--  <bean id="studentaction" class="com.student.action.StudentAction" >
+		<property name="iStudentService" ref="studentservice" ></property>
+		<property name="student" ref="student"/>
+	</bean>-->
+	
+	<!-- 事务的功能实现类-->
+	<bean id="txManager" class="org.springframework.orm.hibernate3.HibernateTransactionManager">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+	
+	<!--  <bean id="employee" class="com.employee.entity.Employee"></bean>-->
+	<!-- 把事务封装好的一个 面板  -->
+	<tx:advice id="txAdvice" transaction-manager="txManager" >
+    	<tx:attributes>
+       		<tx:method name="save(..)" read-only= "true" /> 
+       		<tx:method name="*" />
+    	</tx:attributes>
+	</tx:advice>
+	<!-- 封装结束 -->
+	
+	<!-- 切入事务开始  织入  -->
+	<aop:config>
+    	<aop:pointcut id="pointcut" expression="execution(* com.employee.dao.*.*(..))" /> 
+    	<aop:advisor pointcut-ref="pointcut" advice-ref="txAdvice"/> 
+	</aop:config>
+	<!-- 切入事务结束 -->
+		
+</beans>	
